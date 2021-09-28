@@ -1,0 +1,66 @@
+BEGIN {
+	@sock_state[TCP_ESTABLISHED] = "TCP_ESTABLISHED";
+	@sock_state[TCP_SYN_SENT] = "TCP_SYN_SENT";
+	@sock_state[TCP_SYN_RECV] = "TCP_SYN_RECV";
+	@sock_state[TCP_FIN_WAIT1] = "TCP_FIN_WAIT1";
+	@sock_state[TCP_FIN_WAIT2] = "TCP_FIN_WAIT2";
+	@sock_state[TCP_TIME_WAIT] = "TCP_TIME_WAIT";
+	@sock_state[TCP_CLOSE] = "TCP_CLOSE";
+	@sock_state[TCP_CLOSE_WAIT] = "TCP_CLOSE_WAIT";
+	@sock_state[TCP_LAST_ACK] = "TCP_LAST_ACK";
+	@sock_state[TCP_LISTEN] = "TCP_LISTEN";
+	@sock_state[TCP_CLOSING] = "TCP_CLOSING";
+	@sock_state[TCP_NEW_SYN_RECV] = "TCP_NEW_SYN_RECV";
+}
+
+kprobe:tcp_conn_request {
+	printf("%s: [l: %X (%s)] <%s:%u> handshake request: %u/%u\n",
+		probe,
+		arg2,
+		@sock_state[((struct sock *)arg2)->__sk_common.skc_state],
+		ntop(((struct inet_sock *)arg2)->sk.__sk_common.skc_rcv_saddr),				
+		((struct inet_sock *)arg2)->sk.__sk_common.skc_num,
+		((struct sock *)arg2)->sk_ack_backlog,
+		((struct sock *)arg2)->sk_max_ack_backlog);
+}
+
+kprobe:tcp_check_req {
+	printf("%s: [l: %X (%s) r: %X (%s)] <%s:%u> backlog: %u/%u\n",
+		probe,
+		arg0,
+		@sock_state[((struct sock *)arg0)->__sk_common.skc_state],
+		arg2,
+		@sock_state[((struct request_sock *)arg2)->__req_common.skc_state],
+		ntop(((struct inet_sock *)arg2)->sk.__sk_common.skc_rcv_saddr),				
+		((struct inet_sock *)arg2)->sk.__sk_common.skc_num,
+		((struct sock *)arg0)->sk_ack_backlog,
+		((struct sock *)arg0)->sk_max_ack_backlog);
+}
+
+kprobe:tcp_v4_syn_recv_sock {	
+	printf("%s: [l: %X (%s) r: %X (%s)] <%s:%u> handshake complete: %u/%u\n",
+		probe,
+		arg0,
+		@sock_state[((struct sock *)arg0)->__sk_common.skc_state],
+		arg2,
+		@sock_state[((struct request_sock *)arg2)->__req_common.skc_state],
+		ntop(((struct inet_sock *)arg2)->sk.__sk_common.skc_rcv_saddr),				
+		((struct inet_sock *)arg2)->sk.__sk_common.skc_num,
+		((struct sock *)arg0)->sk_ack_backlog,
+		((struct sock *)arg0)->sk_max_ack_backlog);
+}
+
+kprobe:tcp_create_openreq_child {
+	printf("%s: [l: %X (%s) r: %X (%s)] <%s:%u>\n",
+		probe,
+		arg0,
+		@sock_state[((struct sock *)arg0)->__sk_common.skc_state],
+		arg1,		
+		@sock_state[((struct request_sock *)arg1)->__req_common.skc_state],
+		ntop(((struct inet_sock *)arg0)->sk.__sk_common.skc_rcv_saddr),				
+		((struct inet_sock *)arg0)->sk.__sk_common.skc_num);
+}
+
+END {
+	clear(@sock_state);
+}
